@@ -718,8 +718,7 @@ Structure your response clearly and provide actionable insights.`;
                       />
                       <button
                         onClick={() => removeGuideline(guideline.id)}
-                        style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
-                      >
+                        style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' 
                         <X size={16} />
                       </button>
                     </div>
