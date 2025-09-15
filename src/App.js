@@ -649,83 +649,92 @@ Structure your response clearly and provide actionable insights.`;
                 </div>
               </div>
 
-              {/* Additional Guidelines */}
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <h2 style={{ fontSize: '1.25rem', fontWeight: '600' }}>
-                    {activeGenerator === 'manual' ? '6. Additional Guidelines' : 'Additional Guidelines'}
-                  </h2>
-                  <button
-                    onClick={addGuideline}
-                    style={{
-                      backgroundColor: '#10b981',
-                      color: 'white',
-                      padding: '8px 16px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <Plus size={16} />
-                    Add Guideline
-                  </button>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {guidelines.map(guideline => (
-                    <div key={guideline.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <input
-                        type="text"
-                        value={guideline.text}
-                        onChange={(e) => updateGuideline(guideline.id, e.target.value)}
-                        placeholder="Enter additional guideline or instruction..."
-                        style={{
-                          flex: 1,
-                          padding: '8px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '4px'
-                        }}
-                      />
-                      <button
-                        onClick={() => removeGuideline(guideline.id)}
-                        style={{
-                          color: '#ef4444',
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
+             {/* Action Buttons */}
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', paddingTop: '16px', borderTop: '1px solid #e5e7eb' }}>
+  <button
+    onClick={savePrompt}
+    disabled={!finalPrompt.trim()}
+    style={{
+      backgroundColor: finalPrompt.trim() ? '#3b82f6' : '#d1d5db',
+      color: 'white',
+      padding: '8px 16px',
+      borderRadius: '6px',
+      border: 'none',
+      cursor: finalPrompt.trim() ? 'pointer' : 'not-allowed',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    }}
+  >
+    <Save size={16} />
+    Save Prompt
+  </button>
 
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', paddingTop: '16px', borderTop: '1px solid #e5e7eb' }}>
-                <button
-                  onClick={savePrompt}
-                  disabled={!finalPrompt.trim()}
-                  style={{
-                    backgroundColor: finalPrompt.trim() ? '#3b82f6' : '#d1d5db',
-                    color: 'white',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    cursor: finalPrompt.trim() ? 'pointer' : 'not-allowed',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <Save size={16} />
-                  Save Prompt
-                </button>
-                <button
-                  onClick={copyToClipboard}
-                  disabled={!finalPrompt.trim()}
-                  style={{
-                    backgroundColor: finalPrompt.trim() ?
+  <button
+    onClick={copyToClipboard}
+    disabled={!finalPrompt.trim()}
+    style={{
+      backgroundColor: finalPrompt.trim() ? '#10b981' : '#d1d5db',
+      color: 'white',
+      padding: '8px 16px',
+      borderRadius: '6px',
+      border: 'none',
+      cursor: finalPrompt.trim() ? 'pointer' : 'not-allowed',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    }}
+  >
+    <Copy size={16} />
+    Copy
+  </button>
+
+  <button
+    onClick={downloadPrompt}
+    disabled={!finalPrompt.trim()}
+    style={{
+      backgroundColor: finalPrompt.trim() ? '#6366f1' : '#d1d5db',
+      color: 'white',
+      padding: '8px 16px',
+      borderRadius: '6px',
+      border: 'none',
+      cursor: finalPrompt.trim() ? 'pointer' : 'not-allowed',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    }}
+  >
+    <Download size={16} />
+    Download
+  </button>
+
+  <button
+    onClick={clearAll}
+    style={{
+      backgroundColor: '#f3f4f6',
+      color: '#374151',
+      padding: '8px 16px',
+      borderRadius: '6px',
+      border: '1px solid #e5e7eb',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    }}
+  >
+    <RefreshCw size={16} />
+    Clear All
+  </button>
+</div>
+
+{/* end content container */}
+</div>
+
+{/* card container */}
+</div>
+
+{/* page container */}
+</div>
+);
+}
+
+export default App;
