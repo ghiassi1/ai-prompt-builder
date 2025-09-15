@@ -712,7 +712,7 @@ Structure your response clearly and provide actionable insights.`;
                         style={{
                           flex: 1,
                           padding: '8px',
-                          border: '1px solid '#d1d5db'",
+                          border: '1px solid #d1d5db',
                           borderRadius: '4px'
                         }}
                       />
