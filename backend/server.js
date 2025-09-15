@@ -7,18 +7,29 @@ const app = express();
 // Parse JSON bodies BEFORE routes
 app.use(express.json());
 
-// Allow your Vercel site
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://ai-prompt-builder-pi.vercel.app';
-app.use(
-  cors({
-    origin: FRONTEND_URL,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
+// --- CORS: allow prod, previews, and local dev  (REPLACE your existing CORS block with this)
+const allowedOrigins = [
+  process.env.FRONTEND_URL,           // e.g. https://ai-prompt-builder-pi.vercel.app
+  /\.vercel\.app$/i,                  // any Vercel preview domain
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+];
 
-// Handle CORS preflight for all routes
+app.use(cors({
+  origin(origin, cb) {
+    // allow requests without an Origin (curl/Postman/health checks)
+    if (!origin) return cb(null, true);
+    const ok = allowedOrigins.some(o => (o?.test ? o.test(origin) : o === origin));
+    cb(ok ? null : new Error('Not allowed by CORS'), ok);
+  },
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false
+}));
+
+// Handle CORS preflight globally
 app.options('*', cors());
+// --- end CORS
 
 // Health endpoint
 app.get('/api/health', (req, res) => res.json({ ok: true }));
