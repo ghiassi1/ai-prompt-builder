@@ -15,6 +15,10 @@ function App() {
   const [activeGenerator, setActiveGenerator] = useState('manual');
   const [generatorInput, setGeneratorInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [apiError, setApiError] = useState(null);
+
+  // Backend API configuration
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
   const promptTemplates = {
     'contextual': {
@@ -53,21 +57,61 @@ function App() {
     { id: 'ethical', label: 'Ethical Guidelines', placeholder: 'e.g., avoid bias, include diverse perspectives' }
   ];
 
-  // Demo AI generation with intelligent responses based on input
-  const generateDemoPrompt = async () => {
+  // Real AI generation using backend API
+  const generatePrompt = async () => {
     if (!generatorInput.trim()) return;
     
     setIsGenerating(true);
+    setApiError(null);
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+    try {
+      const response = await fetch(`${API_BASE_URL}/generate-prompt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          description: generatorInput.trim(),
+          userContext: userDetails.trim(),
+          additionalContext: context.trim()
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      setMainPrompt(data.prompt);
+      setActiveGenerator('manual');
+      
+    } catch (error) {
+      console.error('Error generating prompt:', error);
+      setApiError(error.message);
+      
+      // Fallback to demo mode if API fails
+      setTimeout(() => {
+        setApiError(null);
+        generateFallbackPrompt();
+      }, 3000);
+      
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Fallback demo generation if API fails
+  const generateFallbackPrompt = () => {
     const input = generatorInput.toLowerCase();
-    let generatedPrompt = '';
+    let fallbackPrompt = '';
     
-    // Intelligent response generation based on keywords
     if (input.includes('analyze') || input.includes('analysis')) {
-      generatedPrompt = `Please conduct a comprehensive analysis of ${extractMainTopic(generatorInput)}. 
+      fallbackPrompt = `Please conduct a comprehensive analysis of ${extractMainTopic(generatorInput)}. 
 
 Structure your analysis as follows:
 1. Current state and key characteristics
@@ -76,75 +120,9 @@ Structure your analysis as follows:
 4. Potential solutions and recommendations
 5. Implementation considerations and next steps
 
-Provide specific examples, data points where relevant, and actionable insights. Ensure your analysis is objective, well-reasoned, and considers multiple perspectives.`;
-
-    } else if (input.includes('compare') || input.includes('comparison')) {
-      generatedPrompt = `Compare and contrast ${extractMainTopic(generatorInput)} across the following dimensions:
-
-1. Key similarities and differences
-2. Advantages and disadvantages of each
-3. Use cases and applications
-4. Performance metrics and outcomes
-5. Cost-benefit considerations
-
-Provide specific examples and evidence to support your comparison. Structure your response with clear headings and conclude with recommendations for when to use each option.`;
-
-    } else if (input.includes('explain') || input.includes('understand')) {
-      generatedPrompt = `Provide a clear, comprehensive explanation of ${extractMainTopic(generatorInput)}.
-
-Please include:
-- A concise definition and overview
-- Key concepts and principles
-- How it works (step-by-step if applicable)
-- Real-world examples and applications
-- Common misconceptions or pitfalls
-- Why this is important or relevant
-
-Tailor your explanation for someone who is intelligent but may not have deep expertise in this specific area.`;
-
-    } else if (input.includes('strategy') || input.includes('plan')) {
-      generatedPrompt = `Develop a strategic approach for ${extractMainTopic(generatorInput)}.
-
-Your response should include:
-1. Situation analysis and key considerations
-2. Clear objectives and success metrics
-3. Specific strategies and tactics
-4. Implementation timeline and phases
-5. Resource requirements and constraints
-6. Risk assessment and mitigation strategies
-7. Monitoring and evaluation methods
-
-Provide actionable recommendations that are realistic and results-oriented.`;
-
-    } else if (input.includes('write') || input.includes('create') || input.includes('content')) {
-      generatedPrompt = `Create compelling content about ${extractMainTopic(generatorInput)}.
-
-Content requirements:
-- Engaging and informative tone
-- Clear structure with logical flow
-- Specific examples and evidence
-- Actionable insights or takeaways
-- Appropriate length and format for the intended audience
-
-Consider the target audience's needs, interests, and level of expertise when crafting your response.`;
-
-    } else if (input.includes('improve') || input.includes('optimize')) {
-      generatedPrompt = `Provide recommendations to improve and optimize ${extractMainTopic(generatorInput)}.
-
-Focus on:
-1. Current performance assessment
-2. Key areas for improvement
-3. Specific optimization strategies
-4. Best practices and proven methods
-5. Implementation priorities and quick wins
-6. Long-term optimization roadmap
-7. Success metrics and tracking methods
-
-Ensure recommendations are practical, evidence-based, and prioritized by impact and feasibility.`;
-
+Provide specific examples, data points where relevant, and actionable insights.`;
     } else {
-      // Generic but intelligent fallback
-      generatedPrompt = `Please provide a comprehensive response about ${extractMainTopic(generatorInput)}.
+      fallbackPrompt = `Please provide a comprehensive response about ${extractMainTopic(generatorInput)}.
 
 Address the following aspects:
 1. Overview and key points
@@ -152,19 +130,15 @@ Address the following aspects:
 3. Practical implications and applications
 4. Relevant examples or case studies
 5. Best practices and recommendations
-6. Common challenges and how to address them
 
-Structure your response clearly and provide actionable insights that would be valuable for decision-making and implementation.`;
+Structure your response clearly and provide actionable insights.`;
     }
     
-    setMainPrompt(generatedPrompt);
+    setMainPrompt(fallbackPrompt);
     setActiveGenerator('manual');
-    setIsGenerating(false);
   };
 
-  // Helper function to extract main topic from user input
   const extractMainTopic = (input) => {
-    // Remove common prompt words to get the core topic
     const cleanInput = input
       .replace(/^(please |can you |help me |i want to |i need to |how to )/i, '')
       .replace(/(analyze|compare|explain|understand|write|create|improve|optimize|strategy|plan)/gi, '')
@@ -201,7 +175,6 @@ Structure your response clearly and provide actionable insights that would be va
     const issues = [];
     const strengths = [];
     
-    // Check for ambiguity
     const ambiguousTerms = ['best', 'good', 'recent', 'many', 'some', 'often'];
     const hasAmbiguity = ambiguousTerms.some(term => 
       prompt.toLowerCase().includes(term) && !prompt.includes('specific') && !prompt.includes('define')
@@ -211,14 +184,12 @@ Structure your response clearly and provide actionable insights that would be va
       issues.push('Contains potentially ambiguous terms that may need clarification');
     }
 
-    // Check for context
     if (prompt.includes('context of') || prompt.includes('in terms of')) {
       strengths.push('Includes contextual framing');
     } else if (prompt.length > 20) {
       issues.push('Consider adding contextual framing for better results');
     }
 
-    // Check for specificity
     if (prompt.includes('?') && prompt.split('?').length > 2) {
       issues.push('Multiple questions detected - consider breaking into separate prompts');
     }
@@ -227,12 +198,10 @@ Structure your response clearly and provide actionable insights that would be va
       strengths.push('Uses clear action verbs');
     }
 
-    // Check for structure
     if (prompt.includes('1.') || prompt.includes('•') || prompt.includes('include:')) {
       strengths.push('Well-structured with clear requirements');
     }
 
-    // Check length
     if (prompt.length < 10) {
       issues.push('Prompt may be too short for complex responses');
     } else if (prompt.length > 500) {
@@ -247,22 +216,18 @@ Structure your response clearly and provide actionable insights that would be va
   useEffect(() => {
     let prompt = '';
     
-    // Add user details if provided
     if (userDetails.trim()) {
       prompt += `User context: ${userDetails.trim()}\n\n`;
     }
     
-    // Add context if provided
     if (context.trim()) {
       prompt += `Context: ${context.trim()}\n\n`;
     }
     
-    // Add main prompt
     if (mainPrompt.trim()) {
       prompt += mainPrompt.trim();
     }
     
-    // Add constraints
     if (constraints.length > 0) {
       const validConstraints = constraints.filter(c => c.value.trim());
       if (validConstraints.length > 0) {
@@ -274,7 +239,6 @@ Structure your response clearly and provide actionable insights that would be va
       }
     }
     
-    // Add guidelines
     if (guidelines.length > 0) {
       const validGuidelines = guidelines.filter(g => g.text.trim());
       if (validGuidelines.length > 0) {
@@ -287,7 +251,6 @@ Structure your response clearly and provide actionable insights that would be va
     
     setFinalPrompt(prompt);
     
-    // Analyze the prompt
     if (prompt.trim()) {
       setAnalysis(analyzePrompt(prompt));
     } else {
@@ -440,6 +403,20 @@ Structure your response clearly and provide actionable insights that would be va
                   <p style={{ color: '#8b5cf6', fontSize: '14px', marginBottom: '16px' }}>
                     Describe what you want to achieve, and AI will generate an optimized prompt using proven engineering techniques.
                   </p>
+                  
+                  {/* API Error Display */}
+                  {apiError && (
+                    <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '12px', marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
+                        <AlertCircle size={16} />
+                        <span style={{ fontSize: '14px' }}>API Error: {apiError}</span>
+                      </div>
+                      <p style={{ fontSize: '12px', color: '#7f1d1d', marginTop: '4px' }}>
+                        Falling back to demo mode in 3 seconds...
+                      </p>
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <textarea
                       value={generatorInput}
@@ -457,7 +434,7 @@ Structure your response clearly and provide actionable insights that would be va
                       }}
                     />
                     <button
-                      onClick={generateDemoPrompt}
+                      onClick={generatePrompt}
                       disabled={!generatorInput.trim() || isGenerating}
                       style={{
                         backgroundColor: generatorInput.trim() && !isGenerating ? '#8b5cf6' : '#d1d5db',
@@ -490,10 +467,9 @@ Structure your response clearly and provide actionable insights that would be va
                 </div>
               )}
 
-              {/* Manual Builder (existing content) */}
+              {/* Manual Builder Templates (only show in manual mode) */}
               {activeGenerator === 'manual' && (
                 <>
-                  {/* Template Selection */}
                   <div>
                     <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '16px' }}>1. Choose a Template (Optional)</h2>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
@@ -517,7 +493,6 @@ Structure your response clearly and provide actionable insights that would be va
                     </div>
                   </div>
 
-                  {/* User Details */}
                   <div>
                     <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '16px' }}>2. User Context & Personalization</h2>
                     <textarea
@@ -536,7 +511,6 @@ Structure your response clearly and provide actionable insights that would be va
                     />
                   </div>
 
-                  {/* Context Setting */}
                   <div>
                     <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '16px' }}>3. Context & Background</h2>
                     <textarea
@@ -602,6 +576,7 @@ Structure your response clearly and provide actionable insights that would be va
                 />
               </div>
 
+              {/* Rest of the component - constraints, guidelines, buttons remain the same */}
               {/* Constraints */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -753,226 +728,4 @@ Structure your response clearly and provide actionable insights that would be va
                   onClick={copyToClipboard}
                   disabled={!finalPrompt.trim()}
                   style={{
-                    backgroundColor: finalPrompt.trim() ? '#10b981' : '#d1d5db',
-                    color: 'white',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    cursor: finalPrompt.trim() ? 'pointer' : 'not-allowed',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <Copy size={16} />
-                  Copy to Clipboard
-                </button>
-                <button
-                  onClick={downloadPrompt}
-                  disabled={!finalPrompt.trim()}
-                  style={{
-                    backgroundColor: finalPrompt.trim() ? '#8b5cf6' : '#d1d5db',
-                    color: 'white',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    cursor: finalPrompt.trim() ? 'pointer' : 'not-allowed',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <Download size={16} />
-                  Download
-                </button>
-                <button
-                  onClick={clearAll}
-                  style={{
-                    backgroundColor: '#ef4444',
-                    color: 'white',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <RefreshCw size={16} />
-                  Clear All
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'preview' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '600' }}>Prompt Preview & Analysis</h2>
-              
-              {/* Final Prompt Display */}
-              <div>
-                <h3 style={{ fontSize: '1.125rem', fontWeight: '500', marginBottom: '12px' }}>Generated Prompt</h3>
-                <div style={{
-                  backgroundColor: '#f9fafb',
-                  padding: '16px',
-                  borderRadius: '6px',
-                  border: '1px solid #e5e7eb',
-                  minHeight: '128px'
-                }}>
-                  {finalPrompt ? (
-                    <pre style={{ whiteSpace: 'pre-wrap', fontSize: '14px', margin: 0, fontFamily: 'inherit' }}>{finalPrompt}</pre>
-                  ) : (
-                    <p style={{ color: '#6b7280', fontStyle: 'italic', margin: 0 }}>Build your prompt in the Builder tab to see the preview here.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Analysis */}
-              {analysis && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
-                  {/* Strengths */}
-                  <div>
-                    <h3 style={{ fontSize: '1.125rem', fontWeight: '500', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: '#059669' }}>
-                      <CheckCircle size={20} />
-                      Strengths
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {analysis.strengths.length > 0 ? (
-                        analysis.strengths.map((strength, index) => (
-                          <div key={index} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#059669' }}>
-                            <CheckCircle size={16} style={{ marginTop: '2px', flexShrink: 0 }} />
-                            <span style={{ fontSize: '14px' }}>{strength}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <p style={{ color: '#6b7280', fontSize: '14px' }}>No specific strengths detected yet.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Issues */}
-                  <div>
-                    <h3 style={{ fontSize: '1.125rem', fontWeight: '500', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: '#d97706' }}>
-                      <AlertCircle size={20} />
-                      Suggestions for Improvement
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {analysis.issues.length > 0 ? (
-                        analysis.issues.map((issue, index) => (
-                          <div key={index} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#d97706' }}>
-                            <AlertCircle size={16} style={{ marginTop: '2px', flexShrink: 0 }} />
-                            <span style={{ fontSize: '14px' }}>{issue}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <p style={{ color: '#6b7280', fontSize: '14px' }}>No issues detected. Your prompt looks good!</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Character/Word Count */}
-              {finalPrompt && (
-                <div style={{ backgroundColor: '#eff6ff', padding: '16px', borderRadius: '6px' }}>
-                  <h3 style={{ fontWeight: '500', marginBottom: '8px' }}>Prompt Statistics</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px', fontSize: '14px' }}>
-                    <div>
-                      <span style={{ color: '#6b7280' }}>Characters:</span>
-                      <span style={{ marginLeft: '8px', fontWeight: '500' }}>{finalPrompt.length}</span>
-                    </div>
-                    <div>
-                      <span style={{ color: '#6b7280' }}>Words:</span>
-                      <span style={{ marginLeft: '8px', fontWeight: '500' }}>{finalPrompt.trim().split(/\s+/).length}</span>
-                    </div>
-                    <div>
-                      <span style={{ color: '#6b7280' }}>Lines:</span>
-                      <span style={{ marginLeft: '8px', fontWeight: '500' }}>{finalPrompt.split('\n').length}</span>
-                    </div>
-                    <div>
-                      <span style={{ color: '#6b7280' }}>Questions:</span>
-                      <span style={{ marginLeft: '8px', fontWeight: '500' }}>{(finalPrompt.match(/\?/g) || []).length}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'saved' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '600' }}>Saved Prompts</h2>
-              
-              {savedPrompts.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '48px' }}>
-                  <Save size={48} style={{ margin: '0 auto 16px auto', color: '#d1d5db' }} />
-                  <p style={{ color: '#6b7280' }}>No saved prompts yet. Build and save prompts to see them here.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {savedPrompts.map(prompt => (
-                    <div key={prompt.id} style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                        <h3 style={{ fontWeight: '500' }}>{prompt.name}</h3>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#6b7280' }}>
-                          {prompt.type && (
-                            <span style={{ backgroundColor: '#f3f4f6', padding: '4px 8px', borderRadius: '4px' }}>
-                              {promptTemplates[prompt.type]?.name || prompt.type}
-                            </span>
-                          )}
-                          <span>{prompt.timestamp}</span>
-                        </div>
-                      </div>
-                      <div style={{ backgroundColor: '#f9fafb', padding: '12px', borderRadius: '4px', fontSize: '14px', marginBottom: '12px', maxHeight: '128px', overflow: 'auto' }}>
-                        <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>{prompt.content}</pre>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={() => navigator.clipboard.writeText(prompt.content)}
-                          style={{
-                            color: '#3b82f6',
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          <Copy size={14} />
-                          Copy
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSavedPrompts(savedPrompts.filter(p => p.id !== prompt.id));
-                          }}
-                          style={{
-                            color: '#ef4444',
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          <X size={14} />
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default App;
+                    backgroundColor: finalPrompt.trim() ?
